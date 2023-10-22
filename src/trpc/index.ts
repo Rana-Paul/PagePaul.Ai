@@ -9,7 +9,14 @@ export const appRouter = router({
     const { getUser } = getKindeServerSession();
     const user = getUser();
 
-    if (!user.id || !user.email) throw new TRPCError({ code: "UNAUTHORIZED" });
+    console.log("here", user);
+    
+
+    if (!user || !user.email || !user.id) {
+      console.log("error");
+      throw new TRPCError({ code: "UNAUTHORIZED" })
+      
+    };
 
     const dbUser = await db.user.findUnique({
       where: {
@@ -60,6 +67,20 @@ export const appRouter = router({
     })
     return file;
   }),
+
+  getFile: PrivateProcedure.input(z.object({key: z.string()})).mutation(async ({ input, ctx }) => {
+    const { userId } = ctx;
+    const file = await db.file.findFirst({
+      where: {
+        key: input.key,
+        userId
+      },
+    })
+    if(!file) throw new TRPCError({ code: "NOT_FOUND" });
+
+    return file
+
+  })
 });
 
 // export type definition of API

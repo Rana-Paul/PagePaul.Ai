@@ -5,13 +5,28 @@ import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 import { Button } from "./ui/button";
 
 import Dropzone from "react-dropzone";
-import { CloudIcon, File } from "lucide-react";
+import { CloudIcon, File, Loader2 } from "lucide-react";
 import { Progress } from "./ui/progress";
+import { useUploadThing } from "@/lib/uploadthing";
+import { useToast } from "./ui/use-toast";
+import { trpc } from "@/app/_trpc/client";
+import { useRouter } from "next/navigation";
 
 const UploadDropzone = () => {
-
   const [isUploaading, setIsUploading] = useState<boolean>(false);
   const [uploadProgess, setUploadProgress] = useState<number>(0);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const { startUpload } = useUploadThing("pdfUploader");
+
+  const { mutate: startPolling } = trpc.getFile.useMutation({
+    onSuccess: (file) => {
+      router.push(`/dashboard/${file.id}`);
+    },
+    retry: true,
+    retryDelay: 500,
+  });
 
   const startSimulatedProgress = () => {
     // setIsUploading(true);
@@ -23,30 +38,56 @@ const UploadDropzone = () => {
           // setIsUploading(false);
           clearInterval(intervel);
           return prev;
-          }
-          return prev + 5;
+        }
+        return prev + 5;
       });
-      
     }, 500);
 
-    return intervel
-  }
+    return intervel;
+  };
   return (
-    <Dropzone multiple={false} onDrop={async(files) => {
-      setIsUploading(true);
-      const progessIntervel = startSimulatedProgress();
+    <Dropzone
+      multiple={false}
+      onDrop={async (file) => {
+        setIsUploading(true);
+        const progessIntervel = startSimulatedProgress();
 
-      //upload file
+        //upload file
+        const res = await startUpload(file);
 
-      //clear interval
-      clearInterval(progessIntervel);
-      setUploadProgress(100);
-    }}>
+        if (!res) {
+          return toast({
+            title: "Something went wrong",
+            description: "Please try again later",
+            variant: "destructive",
+          });
+        }
+
+        const [fileRes] = res;
+
+        const key = fileRes?.key;
+        if (!key) {
+          return toast({
+            title: "Something went wrong",
+            description: "Please try again later",
+            variant: "destructive",
+          });
+        }
+
+        //clear interval
+        clearInterval(progessIntervel);
+        setUploadProgress(100);
+
+        //polling for file
+        startPolling({ key });
+      }}
+    >
       {({ getRootProps, getInputProps, acceptedFiles }) => (
         <div
           className="border h-64 m-4 border-dashed border-gray-300 rounded-lg"
           {...getRootProps()}
         >
+          <input {...getInputProps()} type="file" className="hidden" />
           <div className="flex items-center justify-center h-full w-full">
             <label
               htmlFor="dopzone-file"
@@ -64,7 +105,7 @@ const UploadDropzone = () => {
               {acceptedFiles && acceptedFiles[0] && (
                 <div className=" max-w-xs bg-white flex items-center rounded-md overflow-hidden outline outline-[1px] outline-zinc-200 divide-x divide-zinc-200">
                   <div className="px-3 py-2 h-full grid place-items-center">
-                    <File className="h-4 w-4 text-blue-500"/>
+                    <File className="h-4 w-4 text-blue-500" />
                   </div>
 
                   <div className="px-3 py-2 h-full text-sm truncate">
@@ -75,11 +116,23 @@ const UploadDropzone = () => {
 
               {isUploaading && (
                 <div className="w-full mt-4 max-w-xs mx-auto">
-                  <Progress value={uploadProgess} className="h-1 w-full bg-zinc-200 "/>
+                  <Progress
+                  indicatorColor={
+                    uploadProgess === 100
+                      ? "green"
+                      : ""
+                  }
+                    value={uploadProgess}
+                    className="h-1 w-full bg-zinc-200 "
+                  />
+                  {uploadProgess === 100 && (
+                    <div className="flex gap-1 items-center justify-center text-sm text-zinc-700 text-center pt-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Redirecting...
+                    </div>
+                  )}
                 </div>
               )}
-
-
             </label>
           </div>
         </div>
