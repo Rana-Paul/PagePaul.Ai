@@ -8,7 +8,7 @@ import Provider from "@/components/Providers";
 import "react-loading-skeleton/dist/skeleton.css"
 import { ToastProvider } from "@/components/ui/toast";
 // import "react-loading-skeleton/dist/skeleton.css"
-
+import "simplebar-react/dist/simplebar.min.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
